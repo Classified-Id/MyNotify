@@ -2,25 +2,69 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>MyNotify</title>
+  <title>TimeNotify - Напоминания</title>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-<h3>🔊 Уведомления со звуком</h3>
+<div class="container">
+  <h1>⏰ TimeNotify</h1>
+  <p class="subtitle">Умные напоминания по времени</p>
 
-<label>Выберите звук:</label>
-<select id="soundSelect">
-  <option value="111.mp3">Короткий сигнал</option>
-  <option value="222.mp3">Мелодичный звон</option>
-  <option value="333.mp3">Тревога</option>
-  <option value="none">Без звука</option>
-</select>
+  <div class="current-time">
+    <strong>Текущее время:</strong>
+    <span id="currentTime">--:--</span>
+  </div>
 
-<label>Громкость:</label>
-<input type="range" id="volumeSlider" min="0" max="100" value="50">
-<span id="volumeValue">50%</span>
+  <div class="section">
+    <h2>➕ Добавить напоминание</h2>
+    <div class="form">
+      <input type="text" id="reminderTitle" placeholder="Название (созвон, обед, задача...)" maxlength="50">
 
-<button id="testSound">Тест звука</button>
-<button id="sendNotification">Отправить уведомление</button>
+      <div class="time-row">
+        <label>Время:</label>
+        <input type="time" id="reminderTime" value="09:00">
+      </div>
+
+      <div class="days-row">
+        <label>Дни:</label>
+        <div class="days">
+          <label><input type="checkbox" name="day" value="1" checked> Пн</label>
+          <label><input type="checkbox" name="day" value="2" checked> Вт</label>
+          <label><input type="checkbox" name="day" value="3" checked> Ср</label>
+          <label><input type="checkbox" name="day" value="4" checked> Чт</label>
+          <label><input type="checkbox" name="day" value="5" checked> Пт</label>
+          <label><input type="checkbox" name="day" value="6"> Сб</label>
+          <label><input type="checkbox" name="day" value="0"> Вс</label>
+        </div>
+      </div>
+
+      <div class="sound-row">
+        <label>Звук:</label>
+        <select id="reminderSound">
+          <option value="111.mp3">Мелодичный</option>
+          <option value="222.mp3">Сигнал</option>
+          <option value="333.mp3">Тревога</option>
+          <option value="none">Без звука</option>
+        </select>
+      </div>
+
+      <button id="addReminderBtn" class="btn-primary">Добавить напоминание</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📋 Мои напоминания</h2>
+    <div id="remindersList" class="reminders-list">
+      <!-- Список напоминаний загрузится здесь -->
+      <div class="empty-state">Нет напоминаний</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button id="testNotificationBtn" class="btn-secondary">Тест уведомления</button>
+    <button id="clearAllBtn" class="btn-danger">Очистить все</button>
+  </div>
+</div>
 
 <script src="popup.js"></script>
 </body>

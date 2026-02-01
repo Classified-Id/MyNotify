@@ -6,20 +6,12 @@ chrome.runtime.onInstalled.addListener(() => {
   const defaultReminders = [
     {
       id: 1,
-      title: "Утренний созвон",
-      time: "09:30",
+      title: "Утренний созвон333",
+      time: "01:03",
       enabled: true,
-      days: [1, 2, 3, 4, 5], // Пн-Пт
-      sound: "chime.mp3"
+      days: [1, 2, 3, 4, 5, 6, 0], // ИСПРАВЛЕНО: 0-6 вместо 1-7
+      sound: "111.mp3"
     },
-    {
-      id: 2,
-      title: "Обед",
-      time: "13:00",
-      enabled: true,
-      days: [1, 2, 3, 4, 5],
-      sound: "beep.mp3"
-    }
   ];
 
   chrome.storage.local.set({ reminders: defaultReminders });
@@ -99,35 +91,68 @@ function sendNotification(reminder) {
   const now = new Date();
   const dayOfWeek = now.getDay();
 
-  // Проверяем, сегодня ли нужно показывать напоминание
   if (!reminder.days.includes(dayOfWeek)) {
     return;
   }
 
-  // Создаем уведомление
-  chrome.notifications.create(`notify_${reminder.id}_${Date.now()}`, {
-    type: 'basic',
-    iconUrl: chrome.runtime.getURL('icons/icon48.png'),
-    title: '⏰ ' + reminder.title,
-    message: `Время: ${reminder.time}`,
-    priority: 2,
-    silent: false // Стандартный звук
-  });
+  console.log(`🔔 Отправка уведомления: ${reminder.title} в ${reminder.time}`);
 
-  // Проигрываем кастомный звук, если есть
-  if (reminder.sound && reminder.sound !== 'none') {
-    playSound(reminder.sound);
-  }
+  // 1. Сначала звук через Web Audio API
+  playWebAudioBeep();
+
+  // 2. Потом уведомление (через небольшую задержку)
+  setTimeout(() => {
+    chrome.notifications.create(`notify_${reminder.id}_${Date.now()}`, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon48.png'),
+      title: '⏰ ' + reminder.title,
+      message: `Время: ${reminder.time}`,
+      priority: 2,
+      silent: true // отключаем системный звук
+    });
+    console.log('Уведомление показано');
+  }, 50);
 }
 
-// Воспроизведение звука
-function playSound(soundFile) {
+// Web Audio API звук (работает в background!)
+function playWebAudioBeep() {
   try {
-    const audio = new Audio(chrome.runtime.getURL(`sounds/${soundFile}`));
-    audio.volume = 0.7;
-    audio.play().catch(e => console.log('Ошибка воспроизведения:', e));
+    console.log('Пробуем Web Audio API...');
+
+    // Создаем AudioContext
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Создаем осциллятор для beep звука
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    // Подключаем
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Настройки звука
+    oscillator.frequency.value = 800; // Частота (800 Гц)
+    oscillator.type = 'sine'; // Тип волны
+
+    // Настройка громкости (плавное затухание)
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+    // Воспроизводим
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+
+    console.log('✅ Web Audio звук запущен');
+
+    // Освобождаем ресурсы
+    oscillator.onended = () => {
+      audioContext.close();
+      console.log('Web Audio завершен');
+    };
+
   } catch (error) {
-    console.error('Ошибка загрузки звука:', error);
+    console.error('❌ Web Audio ошибка:', error);
+    // Fallback на обычный beep
   }
 }
 
@@ -139,5 +164,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true });
     });
     return true; // Асинхронный ответ
+  }
+
+  // Обработчик тестового уведомления
+  if (request.action === 'testNotification') {
+    // Отправляем тестовое уведомление из background
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon48.png'),
+      title: request.title || 'Тест',
+      message: request.message || 'Тестовое уведомление',
+      priority: 2,
+      silent: false
+    });
+    sendResponse({ success: true });
+    return true;
   }
 });
