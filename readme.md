@@ -3,6 +3,7 @@ version: 0.0.1
 author: Classified_id
 
 yandex://extensions/
+
 https://browser.yandex.ru/help/ru/personalization/extension.html
 
 Как добавить новое расширение в Браузер?

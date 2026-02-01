@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Мое первое расширение",
+  "name": "MyNotify",
   "version": "1.0",
-  "description": "Простое расширение",
+  "description": "Ежедневный помощник с планировщиком",
   "action": {
     "default_popup": "popup.html"
   },
