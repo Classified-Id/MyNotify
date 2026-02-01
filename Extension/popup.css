@@ -1,0 +1,29 @@
+html {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+body {
+  width: 784px;
+  height: 584px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.t {
+  border: 10px solid black;
+}
+
+h3 {
+  margin: 0;
+}
+
+button {
+  margin-top: 10px;
+  position: absolute;
+  border: 10px solid red;
+  box-sizing: border-box;
+}

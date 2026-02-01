@@ -1,29 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>MyNofify</title>
-  <style>
-    body {
-      width: 784px;
-      height: 584px;
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-
-    button {
-      margin-top: 10px;
-      position: absolute;
-      border: 10px solid red;
-      box-sizing: border-box;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>MyNotify</title>
 </head>
 <body>
-<h3>Привет!</h3>
-<p>Это мое расширение</p>
-<button id="clickMe">Нажми меня</button>
+<h3>🔊 Уведомления со звуком</h3>
+
+<label>Выберите звук:</label>
+<select id="soundSelect">
+  <option value="111.mp3">Короткий сигнал</option>
+  <option value="222.mp3">Мелодичный звон</option>
+  <option value="333.mp3">Тревога</option>
+  <option value="none">Без звука</option>
+</select>
+
+<label>Громкость:</label>
+<input type="range" id="volumeSlider" min="0" max="100" value="50">
+<span id="volumeValue">50%</span>
+
+<button id="testSound">Тест звука</button>
+<button id="sendNotification">Отправить уведомление</button>
+
 <script src="popup.js"></script>
 </body>
 </html>
