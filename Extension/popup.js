@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <span>📅 ${daysText}</span>
             <span>🔊 ${soundText}</span>
           </div>
-          <button class="toggleBtn mla" data-id="${reminder.id}">${reminder.enabled ? 'Выкл' : 'Вкл'}</button>
-          <button class="deleteBtn" data-id="${reminder.id}">Удалить</button>
+          <button class="toggleBtn btnAccept mla" data-id="${reminder.id}">${reminder.enabled ? 'Выкл' : 'Вкл'}</button>
+          <button class="deleteBtn btnAccept" data-id="${reminder.id}">Удалить</button>
         </fieldset>
       `;
 
