@@ -2,72 +2,112 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>TimeNotify - Напоминания</title>
+  <title>MyNotify</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+<div class="currentTime">
+  <strong>Время:</strong>
+  <span id="currentTime">--:--</span>
+</div>
 
-  <h1>⏰ TimeNotify</h1>
+<fieldset class="inputForm">
+  <legend class="legend">Создайте уведомление</legend>
+  <label>
+    <input
+        type="text"
+        id="reminderTitle"
+        placeholder="Название (созвон, обед, задача...)"
+        maxlength="50"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+    />
+  </label>
 
-  <div class="currentTime">
-    <strong>Текущее время:</strong>
-    <span id="currentTime">--:--</span>
+  <div class="timeRow formRow">
+    <div>
+      <label for="reminderTime" class="mr-4 w60"><strong>Время:</strong></label>
+      <input type="time" id="reminderTime" value="09:00">
+    </div>
+
+    <div>
+      <label for="reminderSound" class="mr-4"><strong>Звук:</strong></label>
+      <select id="reminderSound">
+        <option value="111.mp3">Мелодичный-1</option>
+        <option value="222.mp3">Сигнал-2</option>
+        <option value="333.mp3">Тревога-3</option>
+        <option value="none">Без звука</option>
+      </select>
+    </div>
   </div>
 
-  <section>
-    <h2>➕ Добавить напоминание</h2>
-    <div class="inputForm">
-      <input type="text" id="reminderTitle" placeholder="Название (созвон, обед, задача...)" maxlength="50">
+  <div class="daysRow formRow">
+    <strong class="mr-4 w60">Дни:</strong>
+    <div class="days">
+      <label><input type="checkbox" name="day" value="1" checked> Пн</label>
+      <label><input type="checkbox" name="day" value="2" checked> Вт</label>
+      <label><input type="checkbox" name="day" value="3" checked> Ср</label>
+      <label><input type="checkbox" name="day" value="4" checked> Чт</label>
+      <label><input type="checkbox" name="day" value="5" checked> Пт</label>
+      <label><input type="checkbox" name="day" value="6" checked> Сб</label>
+      <label><input type="checkbox" name="day" value="0" checked> Вс</label>
+    </div>
+  </div>
 
-      <div class="timeRow">
-        <label>Время:</label>
-        <input type="time" id="reminderTime" value="09:00">
-      </div>
+  <button id="addReminderBtn" class="btnAccept">Добавить напоминание</button>
+</fieldset>
 
-      <div class="daysRow">
-        <label>Дни:</label>
-        <div class="days">
-          <label><input type="checkbox" name="day" value="1" checked> Пн</label>
-          <label><input type="checkbox" name="day" value="2" checked> Вт</label>
-          <label><input type="checkbox" name="day" value="3" checked> Ср</label>
-          <label><input type="checkbox" name="day" value="4" checked> Чт</label>
-          <label><input type="checkbox" name="day" value="5" checked> Пт</label>
-          <label><input type="checkbox" name="day" value="6" checked> Сб</label>
-          <label><input type="checkbox" name="day" value="0" checked> Вс</label>
+<section>
+  <p class="listHeader"><span>📋</span> <span>Мои напоминания</span></p>
+<!--  <div id="remindersList" class="remindersList">-->
+<!--    <div class="empty-state">Нет напоминаний</div>-->
+<!--  </div>-->
+
+  <div id="remindersList" class="remindersList">
+    <div class="reminderItem">
+      <fieldset class="reminderInfo">
+        <legend>Утренний созвон333 ✅</legend>
+<!--        <div >Утренний созвон333 ✅</div>-->
+        <div class="reminderDetails">
+          <time>⏰ 01:03</time>
+          <span>📅 Ежедневно</span>
+          <span>🔊 Со звуком</span>
         </div>
+      </fieldset>
+      <div class="reminder-actions">
+        <button class="toggle-btn" data-id="1">
+          Выкл
+        </button>
+        <button class="delete-btn" data-id="1">Удалить</button>
       </div>
-
-      <div class="soundRow">
-        <label>Звук:</label>
-        <select id="reminderSound">
-          <option value="111.mp3">Мелодичный</option>
-          <option value="222.mp3">Сигнал</option>
-          <option value="333.mp3">Тревога</option>
-          <option value="none">Без звука</option>
-        </select>
+    </div>
+    <div class="reminderItem">
+      <article class="reminderInfo">
+        <div class="reminderTitle">Созвон раз два три ✅</div>
+        <div class="reminderDetails">
+          <time>⏰ 17:00</time>
+          <span>📅 Ежедневно</span>
+          <span>🔊 Со звуком</span>
+        </div>
+      </article>
+      <div class="reminder-actions">
+        <button class="toggle-btn" data-id="1770048110339">
+          Выкл
+        </button>
+        <button class="delete-btn" data-id="1770048110339">Удалить</button>
       </div>
-
-
     </div>
-  </section>
+  </div>
+</section>
 
-  <section>
-    <h2>📋 Мои напоминания</h2>
-    <div id="remindersList" class="remindersList">
-      <div class="empty-state">Нет напоминаний</div>
-    </div>
-  </section>
+<aside>
+  <button id="testNotificationBtn" class="btn-secondary">Тест уведомления</button>
+  <button id="clearAllBtn" class="btn-danger">Очистить все</button>
+</aside>
 
-  <footer>
-    <button id="testNotificationBtn" class="btn-secondary">Тест уведомления</button>
-    <button id="clearAllBtn" class="btn-danger">Очистить все</button>
-<!--    <button id="addReminderBtn" class="btn-primary">Добавить напоминание</button>-->
-  </footer>
+<script src="modules/watch.js"></script>
 
-  <!-- Подключаем модули -->
-  <script src="modules/watch.js"></script>
-
-  <!-- Основной файл popup -->
-  <script src="popup.js"></script>
+<script src="popup.js"></script>
 </body>
 </html>

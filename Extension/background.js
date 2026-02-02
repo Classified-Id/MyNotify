@@ -2,21 +2,19 @@
 chrome.runtime.onInstalled.addListener(() => {
   console.log('TimeNotify установлен!');
 
-  // Создаем тестовые напоминания
   const defaultReminders = [
     {
       id: 1,
       title: "Утренний созвон333",
       time: "01:03",
       enabled: true,
-      days: [1, 2, 3, 4, 5, 6, 0], // ИСПРАВЛЕНО: 0-6 вместо 1-7
+      days: [1, 2, 3, 4, 5, 6, 0],
       sound: "111.mp3"
     },
   ];
 
   chrome.storage.local.set({ reminders: defaultReminders });
 
-  // Создаем все напоминания
   scheduleAllReminders(defaultReminders);
 });
 

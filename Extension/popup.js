@@ -28,33 +28,29 @@ document.addEventListener('DOMContentLoaded', function() {
       const soundText = reminder.sound === 'none' ? 'Без звука' : 'Со звуком';
 
       const reminderEl = document.createElement('div');
-      reminderEl.className = 'reminder-item';
+      reminderEl.className = 'reminderItem';
       reminderEl.innerHTML = `
-        <div class="reminder-info">
-          <div class="reminder-title">${reminder.title} ${reminder.enabled ? '✅' : '❌'}</div>
-          <div class="reminder-details">
-            <span>⏰ ${reminder.time}</span>
+        <fieldset class="reminderInfo">
+          <legend class="legend">${reminder.title} ${reminder.enabled ? '✅' : '❌'}</legend>
+          <div class="reminderDetails">
+            <time>⏰ ${reminder.time}</time>
             <span>📅 ${daysText}</span>
             <span>🔊 ${soundText}</span>
           </div>
-        </div>
-        <div class="reminder-actions">
-          <button class="toggle-btn" data-id="${reminder.id}">
-            ${reminder.enabled ? 'Выкл' : 'Вкл'}
-          </button>
-          <button class="delete-btn" data-id="${reminder.id}">Удалить</button>
-        </div>
+          <button class="toggleBtn mla" data-id="${reminder.id}">${reminder.enabled ? 'Выкл' : 'Вкл'}</button>
+          <button class="deleteBtn" data-id="${reminder.id}">Удалить</button>
+        </fieldset>
       `;
 
       container.appendChild(reminderEl);
     });
 
     // Добавляем обработчики кнопок
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
+    document.querySelectorAll('.toggleBtn').forEach(btn => {
       btn.addEventListener('click', toggleReminder);
     });
 
-    document.querySelectorAll('.delete-btn').forEach(btn => {
+    document.querySelectorAll('.deleteBtn').forEach(btn => {
       btn.addEventListener('click', deleteReminder);
     });
   }
@@ -72,18 +68,16 @@ document.addEventListener('DOMContentLoaded', function() {
     return selectedDays.join(', ');
   }
 
-  // Добавление нового напоминания
+  /** Добавление нового напоминания */
   const addReminderBtn = document.getElementById('addReminderBtn');
+
   if (addReminderBtn) {
     addReminderBtn.addEventListener('click', function() {
-      console.log('Клик по кнопке добавления');
-
       const titleInput = document.getElementById('reminderTitle');
       const timeInput = document.getElementById('reminderTime');
       const soundSelect = document.getElementById('reminderSound');
 
       if (!titleInput || !timeInput || !soundSelect) {
-        console.error('Не найдены элементы формы!');
         return;
       }
 
@@ -91,12 +85,11 @@ document.addEventListener('DOMContentLoaded', function() {
       const time = timeInput.value;
       const sound = soundSelect.value;
 
-      // Получаем выбранные дни
       const dayCheckboxes = document.querySelectorAll('input[name="day"]:checked');
-      const days = Array.from(dayCheckboxes).map(cb => parseInt(cb.value));
+      const days = Array.from(dayCheckboxes).map(checkBox => parseInt(checkBox.value));
 
       if (!title) {
-        alert('Введите название напоминания');
+        titleInput.focus();
         return;
       }
 
@@ -133,13 +126,9 @@ document.addEventListener('DOMContentLoaded', function() {
           // Сбрасываем форму
           titleInput.value = '';
           titleInput.focus();
-
-          alert('Напоминание добавлено!');
         });
       });
     });
-  } else {
-    console.error('Кнопка addReminderBtn не найдена!');
   }
 
   // Переключение статуса напоминания
@@ -256,15 +245,11 @@ document.addEventListener('DOMContentLoaded', function() {
         chrome.storage.local.set({ reminders: [] }, () => {
           displayReminders([]);
           chrome.runtime.sendMessage({ action: 'updateReminders' });
-          alert('Все напоминания удалены');
         });
       }
     });
   }
 
-  // // Инициализация
-  // updateCurrentTime();
-  // setInterval(updateCurrentTime, 1000);
   loadReminders();
 
   // Автофокус на поле ввода
@@ -274,13 +259,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   /** Проверяем доступность элементов */
-  console.log('Доступные элементы:');
-  console.log('- currentTime:', document.getElementById('currentTime'));
-  console.log('- reminderTitle:', document.getElementById('reminderTitle'));
-  console.log('- reminderTime:', document.getElementById('reminderTime'));
-  console.log('- reminderSound:', document.getElementById('reminderSound'));
-  console.log('- addReminderBtn:', document.getElementById('addReminderBtn'));
-  console.log('- remindersList:', document.getElementById('remindersList'));
-  console.log('- testNotificationBtn:', document.getElementById('testNotificationBtn'));
-  console.log('- clearAllBtn:', document.getElementById('clearAllBtn'));
+  // console.log('Доступные элементы:');
+  // console.log('- currentTime:', document.getElementById('currentTime'));
+  // console.log('- reminderTitle:', document.getElementById('reminderTitle'));
+  // console.log('- reminderTime:', document.getElementById('reminderTime'));
+  // console.log('- reminderSound:', document.getElementById('reminderSound'));
+  // console.log('- addReminderBtn:', document.getElementById('addReminderBtn'));
+  // console.log('- remindersList:', document.getElementById('remindersList'));
+  // console.log('- testNotificationBtn:', document.getElementById('testNotificationBtn'));
+  // console.log('- clearAllBtn:', document.getElementById('clearAllBtn'));
 });

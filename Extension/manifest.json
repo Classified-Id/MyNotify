@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "TimeNotify - Напоминания",
+  "name": "MyNotify",
   "version": "1.0",
   "description": "Умные напоминания по времени",
   "permissions": [
