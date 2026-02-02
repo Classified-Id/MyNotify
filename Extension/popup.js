@@ -1,20 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('Popup загружен!');
-
-  // Обновление текущего времени
-  function updateCurrentTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString('ru-RU', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-    const currentTimeElement = document.getElementById('currentTime');
-    if (currentTimeElement) {
-      currentTimeElement.textContent = timeString;
-    }
-  }
-
   // Загружаем напоминания
   function loadReminders() {
     chrome.storage.local.get(['reminders'], (result) => {
@@ -278,9 +262,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Инициализация
-  updateCurrentTime();
-  setInterval(updateCurrentTime, 1000);
+  // // Инициализация
+  // updateCurrentTime();
+  // setInterval(updateCurrentTime, 1000);
   loadReminders();
 
   // Автофокус на поле ввода
@@ -289,7 +273,7 @@ document.addEventListener('DOMContentLoaded', function() {
     titleInput.focus();
   }
 
-  // Проверяем доступность элементов
+  /** Проверяем доступность элементов */
   console.log('Доступные элементы:');
   console.log('- currentTime:', document.getElementById('currentTime'));
   console.log('- reminderTitle:', document.getElementById('reminderTitle'));
