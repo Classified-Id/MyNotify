@@ -1,37 +1,132 @@
-// // Инициализация при установке
-// chrome.runtime.onInstalled.addListener(() => {
-//   console.log('TimeNotify установлен!');
-//
-//   const defaultReminders = [
-//     {
-//       id: 1,
-//       title: "Утренний созвон333",
-//       time: "01:03",
-//       enabled: true,
-//       days: [1, 2, 3, 4, 5, 6, 0],
-//       sound: "111.mp3"
-//     },
-//   ];
-//
-//   chrome.storage.local.set({ reminders: defaultReminders });
-//
-//   scheduleAllReminders(defaultReminders);
-// });
+// Флаг инициализации
+let isInitialized = false;
 
-// Функция для создания будильников Chrome
+// Основная функция инициализации
+async function initializeApp() {
+  if (isInitialized) {
+    console.log('MyNotify уже инициализирован');
+    return;
+  }
+
+  console.log('🚀 Инициализация MyNotify...');
+
+  try {
+    // 1. Проверяем, есть ли сохраненные данные
+    const result = await chrome.storage.local.get(['reminders', 'appInitialized']);
+    console.log('Данные из storage:', result);
+
+    // 2. Если приложение не инициализировано или нет напоминаний
+    if (!result.appInitialized || !result.reminders || !Array.isArray(result.reminders)) {
+      console.log('Создаем начальные данные...');
+
+      // Создаем пустой массив напоминаний
+      const defaultReminders = [];
+
+      // Сохраняем с меткой инициализации
+      await chrome.storage.local.set({
+        reminders: defaultReminders,
+        appInitialized: true,
+        lastUpdate: new Date().toISOString()
+      });
+
+      console.log('Созданы начальные данные');
+    } else {
+      console.log(`Найдено ${result.reminders.length} сохраненных напоминаний`);
+    }
+
+    // 3. Загружаем напоминания и планируем их
+    const data = await chrome.storage.local.get(['reminders']);
+    if (data.reminders && Array.isArray(data.reminders)) {
+      scheduleAllReminders(data.reminders);
+    }
+
+    // 4. Устанавливаем флаг
+    isInitialized = true;
+    console.log('✅ MyNotify успешно инициализирован');
+
+  } catch (error) {
+    console.error('❌ Ошибка инициализации:', error);
+  }
+}
+
+// ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
+
+// При запуске браузера
+chrome.runtime.onStartup.addListener(() => {
+  console.log('🔄 Браузер запущен, инициализируем MyNotify...');
+  initializeApp();
+});
+
+// При установке/обновлении расширения
+chrome.runtime.onInstalled.addListener((details) => {
+  console.log(`📦 Расширение ${details.reason}`);
+  initializeApp();
+});
+
+// При получении сообщений от popup
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('📨 Получено сообщение:', request.action);
+
+  if (request.action === 'updateReminders') {
+    // Обновляем будильники
+    chrome.storage.local.get(['reminders'], (result) => {
+      if (result.reminders) {
+        scheduleAllReminders(result.reminders);
+      }
+      sendResponse({ success: true });
+    });
+    return true; // Асинхронный ответ
+  }
+
+  if (request.action === 'testNotification') {
+    // Тестовое уведомление
+    sendTestNotification();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.action === 'restoreBackup') {
+    // Восстановление из backup
+    restoreFromBackup().then(success => {
+      sendResponse({ success });
+    });
+    return true;
+  }
+
+  sendResponse({ success: false, error: 'Неизвестное действие' });
+});
+
+// ========== ФУНКЦИИ ДЛЯ БУДИЛЬНИКОВ ==========
+
+// Планирование всех напоминаний
 function scheduleAllReminders(reminders) {
-  // Очищаем старые будильники
+  if (!reminders || !Array.isArray(reminders)) {
+    console.log('⚠️ Нет напоминаний для планирования');
+    return;
+  }
+
+  console.log(`⏰ Планируем ${reminders.length} напоминаний...`);
+
+  // Очищаем все старые будильники
   chrome.alarms.clearAll();
 
-  reminders.forEach(reminder => {
-    if (reminder.enabled) {
-      scheduleReminder(reminder);
-    }
+  // Фильтруем только активные напоминания
+  const activeReminders = reminders.filter(r => r.enabled);
+  console.log(`Активных: ${activeReminders.length}`);
+
+  // Создаем будильники для каждого активного напоминания
+  activeReminders.forEach(reminder => {
+    scheduleReminder(reminder);
   });
 }
 
-// Функция для создания одного напоминания
+// Планирование одного напоминания
 function scheduleReminder(reminder) {
+  if (!reminder || !reminder.time || !reminder.days) {
+    console.error('❌ Неверный формат напоминания:', reminder);
+    return;
+  }
+
   const now = new Date();
   const [hours, minutes] = reminder.time.split(':').map(Number);
 
@@ -44,10 +139,8 @@ function scheduleReminder(reminder) {
     reminderTime.setDate(reminderTime.getDate() + 1);
   }
 
-  // Проверяем день недели (0 - воскресенье, 1 - понедельник и т.д.)
-  const dayOfWeek = reminderTime.getDay();
-
-  // Если сегодня не подходящий день, находим следующий подходящий
+  // Ищем ближайший подходящий день
+  let dayOfWeek = reminderTime.getDay();
   while (!reminder.days.includes(dayOfWeek)) {
     reminderTime.setDate(reminderTime.getDate() + 1);
     dayOfWeek = reminderTime.getDay();
@@ -57,17 +150,19 @@ function scheduleReminder(reminder) {
   const timeInMs = reminderTime.getTime() - now.getTime();
   const timeInMinutes = Math.max(1, Math.floor(timeInMs / 60000));
 
-  // Создаем будильник с уникальным именем
+  // Уникальное имя будильника
   const alarmName = `reminder_${reminder.id}`;
+
+  // Создаем будильник
   chrome.alarms.create(alarmName, {
     delayInMinutes: timeInMinutes,
-    periodInMinutes: 24 * 60 // повторять каждые 24 часа
+    periodInMinutes: 24 * 60 // повтор каждые 24 часа
   });
 
-  console.log(`Напоминание "${reminder.title}" установлено на ${reminderTime.toLocaleTimeString()}`);
+  console.log(`✅ Напоминание "${reminder.title}" запланировано на ${reminderTime.toLocaleString()}`);
 }
 
-// Обработчик будильников
+// Обработчик срабатывания будильников
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name.startsWith('reminder_')) {
     const reminderId = parseInt(alarm.name.split('_')[1]);
@@ -77,28 +172,31 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       const reminder = reminders.find(r => r.id === reminderId);
 
       if (reminder && reminder.enabled) {
-        // Отправляем уведомление
-        sendNotification(reminder);
+        // Проверяем день недели
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+
+        if (reminder.days.includes(dayOfWeek)) {
+          console.log(`🔔 Сработало напоминание: ${reminder.title} в ${reminder.time}`);
+          sendNotification(reminder);
+        }
       }
     });
   }
 });
 
-// Функция отправки уведомления
-function sendNotification(reminder) {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
+// ========== ФУНКЦИИ УВЕДОМЛЕНИЙ ==========
 
-  if (!reminder.days.includes(dayOfWeek)) {
-    return;
+// Отправка уведомления
+function sendNotification(reminder) {
+  // 1. Воспроизводим звук
+  if (reminder.sound && reminder.sound !== 'none') {
+    playReminderSound(reminder.sound);
+  } else {
+    playWebAudioBeep(); // Стандартный звук
   }
 
-  console.log(`🔔 Отправка уведомления: ${reminder.title} в ${reminder.time}`);
-
-  // 1. Сначала звук через Web Audio API
-  playWebAudioBeep();
-
-  // 2. Потом уведомление (через небольшую задержку)
+  // 2. Показываем уведомление
   setTimeout(() => {
     chrome.notifications.create(`notify_${reminder.id}_${Date.now()}`, {
       type: 'basic',
@@ -108,74 +206,136 @@ function sendNotification(reminder) {
       priority: 2,
       silent: true // отключаем системный звук
     });
-    console.log('Уведомление показано');
-  }, 50);
+  }, 100);
 }
 
-// Web Audio API звук (работает в background!)
+// Тестовое уведомление
+function sendTestNotification() {
+  console.log('🔊 Тестовое уведомление');
+
+  // Проигрываем тестовый звук
+  playWebAudioBeep();
+
+  setTimeout(() => {
+    chrome.notifications.create('test_notification', {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon48.png'),
+      title: 'Тест уведомления',
+      message: 'Работа уведомлений проверена!',
+      priority: 2,
+      silent: true
+    });
+  }, 100);
+}
+
+// Воспроизведение звука напоминания
+function playReminderSound(soundFile) {
+  try {
+    const soundPath = chrome.runtime.getURL(`sounds/${soundFile}`);
+    console.log('🔊 Воспроизведение:', soundPath);
+
+    const audio = new Audio(soundPath);
+    audio.volume = 0.7;
+    audio.play().catch(e => {
+      console.error('Ошибка воспроизведения звука:', e);
+      playWebAudioBeep(); // Fallback
+    });
+  } catch (error) {
+    console.error('Ошибка создания аудио:', error);
+    playWebAudioBeep(); // Fallback
+  }
+}
+
+// Web Audio API звук (fallback)
 function playWebAudioBeep() {
   try {
-    console.log('Пробуем Web Audio API...');
-
-    // Создаем AudioContext
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-    // Создаем осциллятор для beep звука
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
-    // Подключаем
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
 
-    // Настройки звука
-    oscillator.frequency.value = 800; // Частота (800 Гц)
-    oscillator.type = 'sine'; // Тип волны
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
 
-    // Настройка громкости (плавное затухание)
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
 
-    // Воспроизводим
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.5);
 
-    console.log('✅ Web Audio звук запущен');
-
-    // Освобождаем ресурсы
     oscillator.onended = () => {
       audioContext.close();
-      console.log('Web Audio завершен');
     };
 
   } catch (error) {
-    console.error('❌ Web Audio ошибка:', error);
-    // Fallback на обычный beep
+    console.error('Web Audio ошибка:', error);
   }
 }
 
-// Обработчик сообщений от popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'updateReminders') {
-    chrome.storage.local.get(['reminders'], (result) => {
-      scheduleAllReminders(result.reminders || []);
-      sendResponse({ success: true });
-    });
-    return true; // Асинхронный ответ
-  }
+// ========== РЕЗЕРВНОЕ КОПИРОВАНИЕ ==========
 
-  // Обработчик тестового уведомления
-  if (request.action === 'testNotification') {
-    // Отправляем тестовое уведомление из background
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon48.png'),
-      title: request.title || 'Тест',
-      message: request.message || 'Тестовое уведомление',
-      priority: 2,
-      silent: false
-    });
-    sendResponse({ success: true });
-    return true;
+// Создание резервной копии
+async function createBackup() {
+  try {
+    const result = await chrome.storage.local.get(['reminders']);
+    const reminders = result.reminders || [];
+
+    if (reminders.length > 0) {
+      await chrome.storage.sync.set({
+        reminders_backup: reminders,
+        backup_time: new Date().toISOString(),
+        backup_count: reminders.length
+      });
+
+      console.log(`✅ Создана резервная копия ${reminders.length} напоминаний`);
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('❌ Ошибка создания резервной копии:', error);
+    return false;
   }
-});
+}
+
+// Восстановление из резервной копии
+async function restoreFromBackup() {
+  try {
+    const backup = await chrome.storage.sync.get(['reminders_backup']);
+
+    if (backup.reminders_backup) {
+      await chrome.storage.local.set({
+        reminders: backup.reminders_backup,
+        restored_from_backup: new Date().toISOString()
+      });
+
+      // Перепланируем напоминания
+      scheduleAllReminders(backup.reminders_backup);
+
+      console.log(`✅ Восстановлено ${backup.reminders_backup.length} напоминаний из резервной копии`);
+      return true;
+    }
+
+    console.log('⚠️ Резервная копия не найдена');
+    return false;
+  } catch (error) {
+    console.error('❌ Ошибка восстановления:', error);
+    return false;
+  }
+}
+
+// Периодическое создание резервных копий
+setInterval(() => {
+  chrome.storage.local.get(['reminders'], (result) => {
+    if (result.reminders && result.reminders.length > 0) {
+      createBackup();
+    }
+  });
+}, 5 * 60 * 1000); // Каждые 5 минут
+
+// ========== ЗАПУСК ==========
+
+// Запускаем инициализацию сразу
+initializeApp();

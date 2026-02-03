@@ -147,3 +147,11 @@ aside {
   right: 24px;
   top: 14px;
 }
+
+.reminderActions {
+  margin-left: auto;
+}
+
+.toggleBtn, .deleteBtn {
+  width: 70px;
+}
