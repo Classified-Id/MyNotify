@@ -134,11 +134,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // Переключение статуса напоминания
   function toggleReminder(e) {
     const id = parseInt(e.target.dataset.id);
-    console.log('Переключение напоминания:', id);
 
     chrome.storage.local.get(['reminders'], (result) => {
       const reminders = result.reminders || [];
-      const index = reminders.findIndex(r => r.id === id);
+      const index = reminders.findIndex(rem => rem.id === id);
 
       if (index !== -1) {
         reminders[index].enabled = !reminders[index].enabled;

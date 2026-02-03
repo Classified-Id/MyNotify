@@ -1,22 +1,22 @@
-// Инициализация при установке
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('TimeNotify установлен!');
-
-  const defaultReminders = [
-    {
-      id: 1,
-      title: "Утренний созвон333",
-      time: "01:03",
-      enabled: true,
-      days: [1, 2, 3, 4, 5, 6, 0],
-      sound: "111.mp3"
-    },
-  ];
-
-  chrome.storage.local.set({ reminders: defaultReminders });
-
-  scheduleAllReminders(defaultReminders);
-});
+// // Инициализация при установке
+// chrome.runtime.onInstalled.addListener(() => {
+//   console.log('TimeNotify установлен!');
+//
+//   const defaultReminders = [
+//     {
+//       id: 1,
+//       title: "Утренний созвон333",
+//       time: "01:03",
+//       enabled: true,
+//       days: [1, 2, 3, 4, 5, 6, 0],
+//       sound: "111.mp3"
+//     },
+//   ];
+//
+//   chrome.storage.local.set({ reminders: defaultReminders });
+//
+//   scheduleAllReminders(defaultReminders);
+// });
 
 // Функция для создания будильников Chrome
 function scheduleAllReminders(reminders) {
