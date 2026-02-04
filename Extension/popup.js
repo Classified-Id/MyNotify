@@ -1,5 +1,43 @@
+(function openDevToolsOnLoad() {
+  // Только в режиме разработки
+  if (location.href.includes('chrome-extension://')) {
+    console.log('🔧 Расширение MyNotify загружено');
+
+    // Попытка открыть DevTools программно (работает не всегда)
+    try {
+      // Метод 1: Использование chrome.debugger API
+      if (chrome.debugger) {
+        chrome.debugger.getTargets((targets) => {
+          const extensionTarget = targets.find(t =>
+            t.title.includes('MyNotify') ||
+            t.url.includes(chrome.runtime.id)
+          );
+
+          if (extensionTarget) {
+            console.log('Найдена цель для отладки:', extensionTarget);
+          }
+        });
+      }
+
+      // Метод 2: Просто логируем команду для ручного открытия
+      console.log('%c📋 Чтобы открыть DevTools для popup:',
+        'color: #4CAF50; font-weight: bold; font-size: 14px;');
+      console.log('%c1. Нажмите Ctrl+Shift+I (Windows/Linux) или Cmd+Opt+I (Mac)',
+        'color: #2196F3;');
+      console.log('%c2. Или кликните правой кнопкой → "Просмотреть код"',
+        'color: #2196F3;');
+      console.log('%c3. Выберите вкладку "Console"',
+        'color: #2196F3;');
+
+    } catch (e) {
+      console.error('Ошибка при попытке открыть DevTools:', e);
+    }
+  }
+})();
+
+
 // popup.js
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   // Обновляем время
   updateCurrentTime();
   setInterval(updateCurrentTime, 1000);
@@ -24,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!Array.isArray(reminders)) {
         console.warn('reminders не является массивом, исправляем...');
         reminders = [];
-        chrome.storage.local.set({ reminders: [] });
+        chrome.storage.local.set({reminders: []});
       }
 
       console.log('Загружено напоминаний:', reminders.length);
@@ -53,10 +91,9 @@ document.addEventListener('DOMContentLoaded', function() {
       const statusIcon = reminder.enabled ? '✅' : '❌';
       const toggleText = reminder.enabled ? 'Выкл' : 'Вкл';
 
-      const reminderEl = document.createElement('div');
-      reminderEl.className = 'reminderItem';
+      const reminderEl = document.createElement('fieldset');
+      reminderEl.className = 'reminderInfo';
       reminderEl.innerHTML = `
-        <fieldset class="reminderInfo">
           <legend class="legend">${reminder.title} ${statusIcon}</legend>
           <div class="reminderDetails">
             <time>⏰ ${reminder.time}</time>
@@ -67,7 +104,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <button class="toggleBtn btnAccept mla" data-id="${reminder.id}">${toggleText}</button>
             <button class="deleteBtn btnAccept" data-id="${reminder.id}">Удалить</button>
           </div>
-        </fieldset>
       `;
 
       container.appendChild(reminderEl);
@@ -101,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Добавление нового напоминания
   const addReminderBtn = document.getElementById('addReminderBtn');
   if (addReminderBtn) {
-    addReminderBtn.addEventListener('click', function() {
+    addReminderBtn.addEventListener('click', function () {
       const titleInput = document.getElementById('reminderTitle');
       const timeInput = document.getElementById('reminderTime');
       const soundSelect = document.getElementById('reminderSound');
@@ -115,7 +151,9 @@ document.addEventListener('DOMContentLoaded', function() {
       const sound = soundSelect.value;
 
       const dayCheckboxes = document.querySelectorAll('input[name="day"]:checked');
-      const days = Array.from(dayCheckboxes).map(checkBox => parseInt(checkBox.value));
+      const days = Array
+        .from(dayCheckboxes)
+        .map(checkBox => parseInt(checkBox.value));
 
       if (!title) {
         titleInput.focus();
@@ -143,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function() {
         reminders.push(newReminder);
 
         // Сохраняем с обработкой ошибок
-        chrome.storage.local.set({ reminders: reminders }, () => {
+        chrome.storage.local.set({reminders: reminders}, () => {
           if (chrome.runtime.lastError) {
             console.error('Ошибка сохранения:', chrome.runtime.lastError);
             alert('Ошибка сохранения напоминания');
@@ -156,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
           displayReminders(reminders);
 
           // Сообщаем background скрипту об обновлении
-          chrome.runtime.sendMessage({ action: 'updateReminders' });
+          chrome.runtime.sendMessage({action: 'updateReminders'});
 
           // Сбрасываем форму
           titleInput.value = '';
@@ -177,14 +215,14 @@ document.addEventListener('DOMContentLoaded', function() {
       if (index !== -1) {
         reminders[index].enabled = !reminders[index].enabled;
 
-        chrome.storage.local.set({ reminders: reminders }, () => {
+        chrome.storage.local.set({reminders: reminders}, () => {
           if (chrome.runtime.lastError) {
             console.error('Ошибка сохранения:', chrome.runtime.lastError);
             return;
           }
 
           displayReminders(reminders);
-          chrome.runtime.sendMessage({ action: 'updateReminders' });
+          chrome.runtime.sendMessage({action: 'updateReminders'});
         });
       }
     });
@@ -200,14 +238,14 @@ document.addEventListener('DOMContentLoaded', function() {
         let reminders = result.reminders || [];
         reminders = reminders.filter(r => r.id !== id);
 
-        chrome.storage.local.set({ reminders: reminders }, () => {
+        chrome.storage.local.set({reminders: reminders}, () => {
           if (chrome.runtime.lastError) {
             console.error('Ошибка удаления:', chrome.runtime.lastError);
             return;
           }
 
           displayReminders(reminders);
-          chrome.runtime.sendMessage({ action: 'updateReminders' });
+          chrome.runtime.sendMessage({action: 'updateReminders'});
         });
       });
     }
@@ -216,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Тестовое уведомление
   const testNotificationBtn = document.getElementById('testNotificationBtn');
   if (testNotificationBtn) {
-    testNotificationBtn.addEventListener('click', function() {
+    testNotificationBtn.addEventListener('click', function () {
       console.log('Тестовое уведомление');
 
       // Используем background скрипт для теста
@@ -233,16 +271,16 @@ document.addEventListener('DOMContentLoaded', function() {
   // Очистка всех напоминаний
   const clearAllBtn = document.getElementById('clearAllBtn');
   if (clearAllBtn) {
-    clearAllBtn.addEventListener('click', function() {
+    clearAllBtn.addEventListener('click', function () {
       if (confirm('Удалить ВСЕ напоминания? Это действие нельзя отменить.')) {
-        chrome.storage.local.set({ reminders: [] }, () => {
+        chrome.storage.local.set({reminders: []}, () => {
           if (chrome.runtime.lastError) {
             console.error('Ошибка очистки:', chrome.runtime.lastError);
             return;
           }
 
           displayReminders([]);
-          chrome.runtime.sendMessage({ action: 'updateReminders' });
+          chrome.runtime.sendMessage({action: 'updateReminders'});
           console.log('Все напоминания удалены');
         });
       }
@@ -252,9 +290,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Кнопка восстановления из резервной копии (добавьте в HTML если нужно)
   const restoreBackupBtn = document.getElementById('restoreBackupBtn');
   if (restoreBackupBtn) {
-    restoreBackupBtn.addEventListener('click', function() {
+    restoreBackupBtn.addEventListener('click', function () {
       if (confirm('Восстановить напоминания из последней резервной копии?')) {
-        chrome.runtime.sendMessage({ action: 'restoreBackup' }, (response) => {
+        chrome.runtime.sendMessage({action: 'restoreBackup'}, (response) => {
           if (response && response.success) {
             alert('Напоминания восстановлены из резервной копии!');
             loadReminders(); // Перезагружаем список

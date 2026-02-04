@@ -19,7 +19,6 @@ async function initializeApp() {
     if (!result.appInitialized || !result.reminders || !Array.isArray(result.reminders)) {
       console.log('Создаем начальные данные...');
 
-      // Создаем пустой массив напоминаний
       const defaultReminders = [];
 
       // Сохраняем с меткой инициализации

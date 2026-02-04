@@ -1,16 +1,4 @@
-body {
-  width: 784px;
-  padding: 12px;
-  margin: 0;
-  border: 4px solid #e3adad;
-  box-sizing: border-box;
-  border-radius: 8px 2px 2px 8px;
-}
-
-.t {
-  border: 10px solid black;
-}
-
+/* Переменные и теги */
 .mr-4 {
   margin-right: 4px;
 }
@@ -20,28 +8,52 @@ body {
   display: inline-block;
 }
 
-.w62 {
-  width: 60px;
-  display: inline-block;
-}
-
-.legend {
-  font-size: 16px;
-  font-weight: 600;
-  margin-left: 4px;
-  padding: 0 8px;
-}
-
 .mla {
   margin-left: auto;
 }
 
+.flex {
+  display: flex;
+}
+
+/* Основные */
 h3 {
   margin: 0;
 }
 
 p {
   margin: 0;
+}
+
+body {
+  width: 784px;
+  padding: 12px;
+  margin: 2px;
+  border: 2px solid rgb(255, 180, 0);
+  box-sizing: border-box;
+  border-radius: 4px;
+  background-color: #393838;
+  color: rgb(255, 180, 0);
+  font-size: 16px;
+}
+
+.inputForm {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 16px 0;
+  gap: 8px;
+}
+
+fieldset {
+  border: 1px solid rgb(255, 180, 0);
+  border-radius: 2px;
+}
+
+legend {
+  font-size: 16px;
+  font-weight: 600;
+  margin-left: 4px;
+  padding: 0 8px;
 }
 
 .listHeader {
@@ -74,12 +86,15 @@ button:hover {
 
 .timeRow {
   display: flex;
-  gap: 16px;
+  gap: 12px;
+  margin-bottom: 4px;
 }
 
 .formRow {
+  justify-content: space-between;
+  align-items: baseline;
   margin: 2px 0;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .daysRow {
@@ -91,7 +106,7 @@ button:hover {
   margin-left: 4px;
   display: flex;
   align-items: center;
-  height: 19px;
+  height: 24px;
   gap: 8px;
 }
 
@@ -102,17 +117,10 @@ button:hover {
 }
 
 .days > label > input {
-  margin: 2px 4px 2px 2px;
+  margin: 5px 4px 2px 2px;
   height: 18px;
   width: 18px;
   cursor: pointer;
-}
-
-.inputForm {
-  margin: 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 #reminderTitle {
@@ -138,8 +146,8 @@ button:hover {
 }
 
 .currentTime {
-  margin-bottom: 8px;
-  font-size: 16px;
+  margin-left: auto;
+  font-size: 18px;
 }
 
 aside {
@@ -154,4 +162,8 @@ aside {
 
 .toggleBtn, .deleteBtn {
   width: 70px;
+}
+
+#reminderTime {
+  margin-left: 4px;
 }
