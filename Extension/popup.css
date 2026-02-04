@@ -1,22 +1,7 @@
-/* Переменные и теги */
-.mr-4 {
-  margin-right: 4px;
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-.w60 {
-  width: 60px;
-  display: inline-block;
-}
-
-.mla {
-  margin-left: auto;
-}
-
-.flex {
-  display: flex;
-}
-
-/* Основные */
 h3 {
   margin: 0;
 }
@@ -26,7 +11,8 @@ p {
 }
 
 body {
-  width: 784px;
+  width: 782px;
+  height: 560px;
   padding: 12px;
   margin: 2px;
   border: 2px solid rgb(255, 180, 0);
@@ -64,25 +50,20 @@ legend {
 }
 
 button {
-  margin-top: 8px;
+  margin-top: 4px;
   padding: 4px;
-  border: 1px solid cornflowerblue;
   box-sizing: border-box;
   transition: opacity 0.16s;
-}
-
-.btnAccept {
-  width: 180px;
-  color: white;
-  border: 2px solid green;
-  background-color: green;
-  transition: opacity 0.16s;
-}
-
-button:hover {
+  color: rgb(255, 180, 0);
+  background-color: #393838;
   cursor: pointer;
-  opacity: 0.8;
 }
+
+button:hover { opacity: 0.8 }
+
+.btnAccept { width: 180px }
+
+.toggleBtn, .deleteBtn { width: 70px }
 
 .timeRow {
   display: flex;
@@ -95,11 +76,6 @@ button:hover {
   align-items: baseline;
   margin: 2px 0;
   font-size: 16px;
-}
-
-.daysRow {
-  display: flex;
-  align-items: center;
 }
 
 .days {
@@ -118,8 +94,8 @@ button:hover {
 
 .days > label > input {
   margin: 5px 4px 2px 2px;
-  height: 18px;
-  width: 18px;
+  height: 16px;
+  width: 16px;
   cursor: pointer;
 }
 
@@ -127,14 +103,14 @@ button:hover {
   width: 330px;
   padding: 4px;
   font-size: 14px;
-}
-
-.reminderTitle {
-  text-transform: capitalize;
+  border: 1px solid rgb(255, 180, 0);
+  outline: 1px solid rgb(255, 180, 0);
+  border-radius: 4px;
 }
 
 .reminderInfo {
   display: flex;
+  justify-content: space-between;
   font-size: 16px;
   gap: 8px;
 }
@@ -156,14 +132,13 @@ aside {
   top: 14px;
 }
 
-.reminderActions {
-  margin-left: auto;
-}
-
-.toggleBtn, .deleteBtn {
-  width: 70px;
-}
-
-#reminderTime {
-  margin-left: 4px;
+.remindersList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 334px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255, 180, 0) #393838;
 }

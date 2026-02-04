@@ -101,8 +101,8 @@ document.addEventListener('DOMContentLoaded', function () {
             <span>🔊 ${soundText}</span>
           </div>
           <div class="reminderActions">
-            <button class="toggleBtn btnAccept mla" data-id="${reminder.id}">${toggleText}</button>
-            <button class="deleteBtn btnAccept" data-id="${reminder.id}">Удалить</button>
+            <button class="toggleBtn mla" data-id="${reminder.id}">${toggleText}</button>
+            <button class="deleteBtn" data-id="${reminder.id}">Удалить</button>
           </div>
       `;
 
