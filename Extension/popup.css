@@ -126,12 +126,6 @@ button:hover { opacity: 0.8 }
   font-size: 18px;
 }
 
-aside {
-  position: fixed;
-  right: 24px;
-  top: 14px;
-}
-
 .remindersList {
   display: flex;
   flex-direction: column;

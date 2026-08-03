@@ -1,5 +1,5 @@
 Extnsion name: MyNotify
-version: 0.0.1
+version: 1.0
 author: Classified_id
 
 yandex://extensions/
