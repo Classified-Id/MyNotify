@@ -65,6 +65,21 @@ button:hover { opacity: 0.8 }
 
 .toggleBtn, .deleteBtn { width: 70px }
 
+/* Панель кнопок под формой: «Добавить» + сервисные действия */
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnSecondary { width: 140px }
+
+/* Плейсхолдер пустого списка напоминаний */
+.empty-state {
+  opacity: 0.6;
+  font-style: italic;
+}
+
 .timeRow {
   display: flex;
   gap: 12px;
@@ -118,6 +133,13 @@ button:hover { opacity: 0.8 }
 .reminderDetails {
   display: flex;
   margin: 8px 0;
+  gap: 8px;
+}
+
+/* Кнопки «Вкл/Выкл» и «Удалить» прижаты вправо внутри карточки */
+.reminderActions {
+  display: flex;
+  justify-content: flex-end;
   gap: 8px;
 }
 

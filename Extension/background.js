@@ -1,277 +1,285 @@
-// ============================================================
-// MyNotify Background Service Worker (Manifest V3)
-// ============================================================
+/**
+ * MyNotify — background service worker (Manifest V3).
+ *
+ * Зоны ответственности:
+ *   1. инициализация локального хранилища;
+ *   2. постановка chrome.alarms на каждое включённое напоминание;
+ *   3. показ уведомлений + звук через offscreen document;
+ *   4. периодический бэкап напоминаний в chrome.storage.sync.
+ *
+ * Service worker «засыпает» и просыпается — поэтому никакого состояния
+ * в памяти, кроме флага инициализации, не храним: всё живёт в storage и alarms.
+ */
 
-let isInitialized = false;
-const OFFSCREEN_DOC_PATH = 'offscreen.html';
-const BACKUP_ALARM_NAME = 'backupAlarm';
+const OFFSCREEN_PATH = 'offscreen.html';
+const ICON_URL = 'icons/icon48.png';
+
+const REMINDER_ALARM_PREFIX = 'reminder_';
+const BACKUP_ALARM = 'backupAlarm';
 const BACKUP_INTERVAL_MIN = 5;
 
-// ========== ИНИЦИАЛИЗАЦИЯ ==========
+let isInitialized = false;
+
+// ==================== ХРАНИЛИЩЕ ====================
+
+/** Всегда возвращает массив напоминаний (пустой, если данных нет/они битые). */
+async function getReminders() {
+  const { reminders } = await chrome.storage.local.get('reminders');
+  return Array.isArray(reminders) ? reminders : [];
+}
+
+// ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 async function initializeApp() {
-  if (isInitialized) {
-    console.log('MyNotify уже инициализирован');
-    return;
+  if (isInitialized) return;
+  isInitialized = true;
+
+  const { reminders } = await chrome.storage.local.get('reminders');
+
+  // Первый запуск (или данные повреждены) — заводим пустое хранилище
+  if (!Array.isArray(reminders)) {
+    await chrome.storage.local.set({ reminders: [], appInitialized: true });
   }
 
-  console.log('🚀 Инициализация MyNotify...');
-
-  try {
-    const result = await chrome.storage.local.get(['reminders', 'appInitialized']);
-
-    if (!result.appInitialized || !result.reminders || !Array.isArray(result.reminders)) {
-      console.log('Создаем начальные данные...');
-      await chrome.storage.local.set({
-        reminders: [],
-        appInitialized: true,
-        lastUpdate: new Date().toISOString()
-      });
-    } else {
-      console.log(`Найдено ${result.reminders.length} сохраненных напоминаний`);
-    }
-
-    const data = await chrome.storage.local.get(['reminders']);
-    if (data.reminders && Array.isArray(data.reminders)) {
-      scheduleAllReminders(data.reminders);
-    }
-
-    isInitialized = true;
-    console.log('✅ MyNotify успешно инициализирован');
-
-  } catch (error) {
-    console.error('❌ Ошибка инициализации:', error);
-  }
+  await scheduleAllReminders();
 }
 
-// ========== OFFSREEN DOCUMENT ==========
+// ==================== OFFSРEEN: ЗВУК ====================
 
-/**
- * Активирует offscreen document для воспроизведения звука.
- */
+/** Создаёт offscreen document, если его ещё нет (нужен для Audio API в MV3). */
 async function ensureOffscreenDocument() {
-  const existingContexts = await chrome.runtime.getContexts({
+  const contexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
-    documentUrls: [chrome.runtime.getURL(OFFSCREEN_DOC_PATH)]
+    documentUrls: [chrome.runtime.getURL(OFFSCREEN_PATH)],
   });
 
-  if (existingContexts.length > 0) return;
+  if (contexts.length > 0) return;
 
   await chrome.offscreen.createDocument({
-    url: OFFSCREEN_DOC_PATH,
+    url: OFFSCREEN_PATH,
     reasons: ['AUDIO_PLAYBACK'],
-    justification: 'Воспроизведение звука напоминаний'
+    justification: 'Воспроизведение звука напоминаний',
   });
 }
 
-// ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
-
-chrome.runtime.onStartup.addListener(() => {
-  console.log('🔄 Браузер запущен, инициализируем MyNotify...');
-  initializeApp();
-});
-
-chrome.runtime.onInstalled.addListener((details) => {
-  console.log(`📦 Расширение ${details.reason}`);
-  initializeApp();
-});
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('📨 Получено сообщение:', request.action);
-
-  if (request.action === 'updateReminders') {
-    chrome.storage.local.get(['reminders'], (result) => {
-      if (result.reminders) {
-        scheduleAllReminders(result.reminders);
-      }
-      sendResponse({success: true});
-    });
-    return true;
+/**
+ * Проиграть звук напоминания.
+ * @param {string | null} soundFile - имя mp3 из sounds/; null → стандартный бип
+ */
+async function playReminderSound(soundFile) {
+  try {
+    await ensureOffscreenDocument();
+    await chrome.runtime.sendMessage({ action: 'playSound', soundFile });
+  } catch {
+    // offscreen ещё не готов или умер — уведомление важнее звука, молчим
   }
-
-  if (request.action === 'testNotification') {
-    sendTestNotification();
-    sendResponse({success: true});
-    return true;
-  }
-
-  if (request.action === 'restoreBackup') {
-    restoreFromBackup().then(success => {
-      sendResponse({success});
-    });
-    return true;
-  }
-
-  sendResponse({success: false, error: 'Неизвестное действие'});
-});
-
-// ========== БУДИЛЬНИКИ ==========
-
-function scheduleAllReminders(reminders) {
-  if (!reminders || !Array.isArray(reminders)) return;
-
-  console.log(`⏰ Планируем ${reminders.length} напоминаний...`);
-  chrome.alarms.clearAll();
-
-  const activeReminders = reminders.filter(r => r.enabled);
-
-  // Отдельно восстанавливаем резервный alarm
-  ensureBackupAlarm();
-
-  activeReminders.forEach(reminder => scheduleReminder(reminder));
 }
 
+/**
+ * Заглушить текущий звук (offscreen сам остановит mp3 или бип).
+ * Молча игнорируем любые ошибки: offscreen может быть ещё не создан/уже закрыт.
+ */
+function stopReminderSound() {
+  try {
+    chrome.runtime.sendMessage({ action: 'stopSound' })?.catch?.(() => {});
+  } catch {
+    // нет получателя — глушить нечего
+  }
+}
+
+// ==================== РАСПИСАНИЕ ====================
+
+/**
+ * Пересоздаёт все алармы под текущий список напоминаний.
+ * clearAll() удаляет и бэкап-аларм, поэтому сразу восстанавливаем его.
+ */
+async function scheduleAllReminders() {
+  const reminders = await getReminders();
+
+  await chrome.alarms.clearAll();
+  reminders.filter((reminder) => reminder.enabled).forEach(scheduleReminder);
+  await ensureBackupAlarm();
+}
+
+/**
+ * Ставит одноразовый аларм на ближайшее срабатывание напоминания.
+ * Одноразовый, а не периодический: после срабатывания ставим следующий заново,
+ * иначе при переходе на летнее/зимнее время аларм «уезжает» по локальным часам.
+ */
 function scheduleReminder(reminder) {
-  if (!reminder || !reminder.time || !reminder.days) return;
+  const { id, time } = reminder;
+  // Дни приводим к числам: из бэкапа они могут прийти строками
+  const days = Array.isArray(reminder.days) ? reminder.days.map(Number) : [];
 
-  const now = new Date();
-  const [hours, minutes] = reminder.time.split(':').map(Number);
-  const reminderTime = new Date();
-  reminderTime.setHours(hours, minutes, 0, 0);
+  if (!time || days.length === 0) return;
 
-  if (reminderTime < now) {
-    reminderTime.setDate(reminderTime.getDate() + 1);
+  const [hours, minutes] = time.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return;
+
+  const next = new Date();
+  next.setHours(hours, minutes, 0, 0);
+
+  // Сегодняшнее время уже прошло либо день не выбран — идём вперёд по дням
+  if (next <= new Date()) next.setDate(next.getDate() + 1);
+
+  // Максимум 7 шагов — защита от «зависшего» поиска при некорректных данных
+  for (let step = 0; step < 8 && !days.includes(next.getDay()); step += 1) {
+    next.setDate(next.getDate() + 1);
   }
 
-  let dayOfWeek = reminderTime.getDay();
-  while (!reminder.days.includes(dayOfWeek)) {
-    reminderTime.setDate(reminderTime.getDate() + 1);
-    dayOfWeek = reminderTime.getDay();
-  }
-
-  const timeInMs = reminderTime.getTime() - now.getTime();
-  const timeInMinutes = Math.max(1, Math.floor(timeInMs / 60000));
-
-  chrome.alarms.create(`reminder_${reminder.id}`, {
-    delayInMinutes: timeInMinutes,
-    periodInMinutes: 24 * 60
-  });
-
-  console.log(`✅ "${reminder.title}" запланировано на ${reminderTime.toLocaleString()}`);
+  chrome.alarms.create(REMINDER_ALARM_PREFIX + id, { when: next.getTime() });
 }
 
-// ========== ОБРАБОТЧИК СРАБАТЫВАНИЯ АЛАРМОВ ==========
+// ==================== УВЕДОМЛЕНИЯ ====================
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === BACKUP_ALARM_NAME) {
-    createBackup();
-    return;
+/**
+ * Показывает системное уведомление.
+ *  - silent: true          — звук играем сами через offscreen, чтобы его можно было прервать;
+ *  - requireInteraction    — уведомление висит, пока его не закроют. Иначе оно само
+ *                            пропадает и обрывает звук раньше, чем пользователь его увидел.
+ */
+function showNotification(id, title, message) {
+  chrome.notifications.create(id, {
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL(ICON_URL),
+    title,
+    message,
+    priority: 2,
+    silent: true,
+    requireInteraction: true,
+  });
+}
+
+/** Срабатывание напоминания: уведомление + (опционально) звук. */
+function fireReminder(reminder) {
+  showNotification(
+    `notify_${reminder.id}_${Date.now()}`,
+    `⏰ ${reminder.title}`,
+    `Время: ${reminder.time}`,
+  );
+
+  // «Без звука» — значит действительно без звука (раньше играл бип)
+  if (reminder.sound !== 'none') {
+    playReminderSound(reminder.sound || null);
   }
+}
 
-  if (alarm.name.startsWith('reminder_')) {
-    const reminderId = parseInt(alarm.name.split('_')[1]);
+/** Тестовое уведомление со звуком (кнопка в popup). */
+function fireTestNotification() {
+  showNotification('test_notification', 'Тест уведомления', 'Работа уведомлений проверена!');
+  playReminderSound(null);
+}
 
-    chrome.storage.local.get(['reminders'], (result) => {
-      const reminders = result.reminders || [];
-      const reminder = reminders.find(r => r.id === reminderId);
+/**
+ * Закрытие любого уведомления (крестик или таймаут) — глушим звук.
+ * Звучит всегда максимум один, поэтому не важно, какое именно закрыли.
+ */
+chrome.notifications.onClosed.addListener(() => stopReminderSound());
 
-      if (reminder && reminder.enabled) {
-        const now = new Date();
-        if (reminder.days.includes(now.getDay())) {
-          console.log(`🔔 Сработало: ${reminder.title} в ${reminder.time}`);
-          sendNotification(reminder);
-        }
-      }
-    });
-  }
+/**
+ * Клик по уведомлению = «прочитал». Закрываем его, что вызовет onClosed
+ * и остановит звук (Chrome по клику уведомление не скрывает сам).
+ */
+chrome.notifications.onClicked.addListener((notificationId) => {
+  chrome.notifications.clear(notificationId);
 });
 
-// ========== УВЕДОМЛЕНИЯ ==========
+// ==================== РЕЗЕРВНОЕ КОПИРОВАНИЕ ====================
 
-async function sendNotification(reminder) {
-  // Звук через offscreen document
-  ensureOffscreenDocument().then(() => {
-    const soundFile = (reminder.sound && reminder.sound !== 'none') ? reminder.sound : null;
-    chrome.runtime.sendMessage({action: 'playSound', soundFile: soundFile})
-      .catch(() => {}); // offscreen может быть не готов — не критично
-  });
+async function ensureBackupAlarm() {
+  const existing = await chrome.alarms.get(BACKUP_ALARM);
+  if (existing) return;
 
-  setTimeout(() => {
-    chrome.notifications.create(`notify_${reminder.id}_${Date.now()}`, {
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon48.png'),
-      title: '⏰ ' + reminder.title,
-      message: `Время: ${reminder.time}`,
-      priority: 2,
-      silent: true
-    });
-  }, 100);
-}
-
-function sendTestNotification() {
-  console.log('🔊 Тестовое уведомление');
-
-  ensureOffscreenDocument().then(() => {
-    chrome.runtime.sendMessage({action: 'playSound', soundFile: null})
-      .catch(() => {});
-  });
-
-  setTimeout(() => {
-    chrome.notifications.create('test_notification', {
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon48.png'),
-      title: 'Тест уведомления',
-      message: 'Работа уведомлений проверена!',
-      priority: 2,
-      silent: true
-    });
-  }, 100);
-}
-
-// ========== РЕЗЕРВНОЕ КОПИРОВАНИЕ ==========
-
-function ensureBackupAlarm() {
-  chrome.alarms.get(BACKUP_ALARM_NAME, (existing) => {
-    if (!existing) {
-      chrome.alarms.create(BACKUP_ALARM_NAME, {
-        delayInMinutes: BACKUP_INTERVAL_MIN,
-        periodInMinutes: BACKUP_INTERVAL_MIN
-      });
-    }
+  chrome.alarms.create(BACKUP_ALARM, {
+    delayInMinutes: BACKUP_INTERVAL_MIN,
+    periodInMinutes: BACKUP_INTERVAL_MIN,
   });
 }
 
 async function createBackup() {
   try {
-    const result = await chrome.storage.local.get(['reminders']);
-    const reminders = result.reminders || [];
+    const reminders = await getReminders();
+    if (reminders.length === 0) return;
 
-    if (reminders.length > 0) {
-      await chrome.storage.sync.set({
-        reminders_backup: reminders,
-        backup_time: new Date().toISOString(),
-        backup_count: reminders.length
-      });
-      console.log(`✅ Резервная копия: ${reminders.length} напоминаний`);
-    }
+    await chrome.storage.sync.set({
+      reminders_backup: reminders,
+      backup_time: new Date().toISOString(),
+      backup_count: reminders.length,
+    });
   } catch (error) {
-    console.error('❌ Ошибка резервного копирования:', error);
+    console.error('Ошибка резервного копирования:', error);
   }
 }
 
+/** @returns {Promise<boolean>} удалось ли восстановить */
 async function restoreFromBackup() {
   try {
-    const backup = await chrome.storage.sync.get(['reminders_backup']);
+    const { reminders_backup: backup } = await chrome.storage.sync.get('reminders_backup');
+    if (!Array.isArray(backup)) return false;
 
-    if (backup.reminders_backup) {
-      await chrome.storage.local.set({
-        reminders: backup.reminders_backup,
-        restored_from_backup: new Date().toISOString()
-      });
+    await chrome.storage.local.set({
+      reminders: backup,
+      restored_from_backup: new Date().toISOString(),
+    });
 
-      scheduleAllReminders(backup.reminders_backup);
-      console.log(`✅ Восстановлено ${backup.reminders_backup.length} напоминаний`);
-      return true;
-    }
-
-    console.log('⚠️ Резервная копия не найдена');
-    return false;
+    await scheduleAllReminders();
+    return true;
   } catch (error) {
-    console.error('❌ Ошибка восстановления:', error);
+    console.error('Ошибка восстановления:', error);
     return false;
   }
 }
 
-// ========== ЗАПУСК ==========
+// ==================== СОБЫТИЯ РАСШИРЕНИЯ ====================
+
+chrome.runtime.onStartup.addListener(initializeApp);
+chrome.runtime.onInstalled.addListener(initializeApp);
+
+// onMessage: возвращаем true, когда ответ асинхронный (sendResponse позже)
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  switch (request.action) {
+    case 'updateReminders':
+      scheduleAllReminders().then(() => sendResponse({ success: true }));
+      return true;
+
+    case 'testNotification':
+      fireTestNotification();
+      sendResponse({ success: true });
+      return true;
+
+    case 'restoreBackup':
+      restoreFromBackup().then((success) => sendResponse({ success }));
+      return true;
+
+    default:
+      sendResponse({ success: false, error: 'Неизвестное действие' });
+      return false;
+  }
+});
+
+// ==================== АЛАРМЫ ====================
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === BACKUP_ALARM) {
+    createBackup();
+    return;
+  }
+
+  if (!alarm.name.startsWith(REMINDER_ALARM_PREFIX)) return;
+
+  const id = Number(alarm.name.slice(REMINDER_ALARM_PREFIX.length));
+  const reminder = (await getReminders()).find((item) => item.id === id);
+  if (!reminder || !reminder.enabled) return;
+
+  // Проверка дня нужна на случай переноса времени/будильников ОС
+  const days = Array.isArray(reminder.days) ? reminder.days.map(Number) : [];
+  if (days.includes(new Date().getDay())) {
+    fireReminder(reminder);
+  }
+
+  scheduleReminder(reminder); // ставим следующее срабатывание
+});
+
+// ==================== СТАРТ ====================
 
 initializeApp();
