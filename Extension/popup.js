@@ -3,6 +3,17 @@
 const STORAGE_KEY = 'reminders';
 const DAY_NAMES = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
+// Порядок дней для форм (как в основной форме: Пн…Вс)
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+// Варианты звука дублируют <select> основной формы — нужны для инлайн-редактирования
+const SOUND_OPTIONS = [
+  ['111.mp3', 'Мелодичный'],
+  ['222.mp3', 'Сигнал'],
+  ['333.mp3', 'Тревога'],
+  ['none', 'Без звука'],
+];
+
 /**
  * Безопасная отправка сообщения в background.
  * В старых сборках Chromium sendMessage не возвращает Promise — тогда null.
@@ -66,8 +77,114 @@ function getDaysText(days) {
   return [...days].sort((a, b) => a - b).map((day) => DAY_NAMES[day]).join(', ');
 }
 
+/**
+ * Инлайн-форма редактирования напоминания: название, время, дни, звук.
+ * Живёт внутри карточки и не использует id основной формы, чтобы не конфликтовать с ней.
+ */
+function createEditForm(reminder, onSave, onCancel) {
+  const form = document.createElement('form');
+  form.className = 'editForm';
+
+  const header = document.createElement('strong');
+  header.className = 'editHeader';
+  header.textContent = '✏️ Редактирование';
+
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.className = 'editTitle';
+  titleInput.placeholder = 'Название (созвон, обед, задача...)';
+  titleInput.maxLength = 50;
+  titleInput.autocomplete = 'off';
+  titleInput.spellcheck = false;
+  titleInput.value = reminder.title || '';
+
+  const timeInput = document.createElement('input');
+  timeInput.type = 'time';
+  timeInput.className = 'editTime';
+  timeInput.value = reminder.time || '09:00';
+
+  const timeLabel = document.createElement('label');
+  timeLabel.className = 'editField';
+  timeLabel.append('Время:', timeInput);
+
+  const soundSelect = document.createElement('select');
+  soundSelect.className = 'editSound';
+  SOUND_OPTIONS.forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    if (value === reminder.sound) option.selected = true;
+    soundSelect.appendChild(option);
+  });
+
+  const soundLabel = document.createElement('label');
+  soundLabel.className = 'editField';
+  soundLabel.append('Звук:', soundSelect);
+
+  const daysBox = document.createElement('div');
+  daysBox.className = 'editDays';
+
+  const daysCaption = document.createElement('strong');
+  daysCaption.textContent = 'Дни:';
+  daysBox.appendChild(daysCaption);
+
+  const currentDays = Array.isArray(reminder.days) ? reminder.days.map(Number) : [];
+  DAY_ORDER.forEach((day) => {
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = String(day);
+    checkbox.checked = currentDays.includes(day);
+    label.append(checkbox, ` ${DAY_NAMES[day]}`);
+    daysBox.appendChild(label);
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'editActions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'submit';
+  saveBtn.className = 'btnAccept editSave';
+  saveBtn.textContent = 'Сохранить';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btnSecondary editCancel';
+  cancelBtn.textContent = 'Отмена';
+  cancelBtn.addEventListener('click', onCancel);
+
+  actions.append(saveBtn, cancelBtn);
+
+  // submit вместо click — Enter в поле названия тоже сохраняет изменения
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const title = titleInput.value.trim();
+    const days = Array.from(daysBox.querySelectorAll('input[type="checkbox"]:checked'))
+      .map((checkbox) => Number(checkbox.value));
+
+    if (!title) {
+      titleInput.focus();
+      return;
+    }
+    if (days.length === 0) {
+      alert('Выберите хотя бы один день');
+      return;
+    }
+
+    onSave({ title, time: timeInput.value, days, sound: soundSelect.value });
+  });
+
+  const topRow = document.createElement('div');
+  topRow.className = 'editRow';
+  topRow.append(titleInput, timeLabel, soundLabel);
+
+  form.append(header, topRow, daysBox, actions);
+  return form;
+}
+
 /** Создаёт карточку одного напоминания. */
-function createReminderCard(reminder, onToggle, onDelete) {
+function createReminderCard(reminder, onToggle, onDelete, onEdit) {
   const card = document.createElement('fieldset');
   card.className = 'reminderInfo';
 
@@ -96,12 +213,28 @@ function createReminderCard(reminder, onToggle, onDelete) {
   toggleBtn.textContent = reminder.enabled ? 'Выкл' : 'Вкл';
   toggleBtn.addEventListener('click', () => onToggle(reminder.id));
 
+  // Деликатное редактирование: маленькая кнопка, форма раскрывается прямо в карточке
+  const editBtn = document.createElement('button');
+  editBtn.className = 'editBtn';
+  editBtn.textContent = '✏️';
+  editBtn.title = 'Изменить напоминание';
+  editBtn.addEventListener('click', () => {
+    card.classList.add('editing');
+    card.replaceChildren(
+      createEditForm(
+        reminder,
+        (changes) => onEdit(reminder.id, changes),
+        refreshList,
+      ),
+    );
+  });
+
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'deleteBtn';
   deleteBtn.textContent = 'Удалить';
   deleteBtn.addEventListener('click', () => onDelete(reminder.id));
 
-  actions.append(toggleBtn, deleteBtn);
+  actions.append(toggleBtn, editBtn, deleteBtn);
 
   card.append(legend, details, actions);
   return card;
@@ -123,7 +256,9 @@ function render(reminders) {
   }
 
   reminders.forEach((reminder) => {
-    container.appendChild(createReminderCard(reminder, toggleReminder, deleteReminder));
+    container.appendChild(
+      createReminderCard(reminder, toggleReminder, deleteReminder, updateReminder),
+    );
   });
 }
 
@@ -143,6 +278,24 @@ async function deleteReminder(id) {
 
   const reminders = await loadReminders();
   await commit(reminders.filter((item) => item.id !== id));
+}
+
+/**
+ * Сохраняет правки карточки: название, время, дни, звук.
+ * commit() сам перепланирует алармы и перерисует список.
+ */
+async function updateReminder(id, changes) {
+  const reminders = await loadReminders();
+  const reminder = reminders.find((item) => item.id === id);
+  if (!reminder) return;
+
+  Object.assign(reminder, changes);
+  await commit(reminders);
+}
+
+/** Перечитывает список и перерисовывает его (выход из режима редактирования). */
+async function refreshList() {
+  render(await loadReminders());
 }
 
 /** Читает форму; возвращает null, если данные неполные. */

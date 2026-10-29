@@ -65,6 +65,13 @@ button:hover { opacity: 0.8 }
 
 .toggleBtn, .deleteBtn { width: 70px }
 
+/* Компактная кнопка редактирования — намеренно неброская, чтобы не спорить с «Удалить» */
+.editBtn {
+  width: 34px;
+  padding: 4px 0;
+  line-height: 1;
+}
+
 /* Панель кнопок под формой: «Добавить» + сервисные действия */
 .formActions {
   display: flex;
@@ -157,4 +164,94 @@ button:hover { opacity: 0.8 }
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgb(255, 180, 0) #393838;
+}
+
+/* Раскрытая карточка: форма занимает всю ширину, список не «дёргается» */
+.reminderInfo.editing {
+  display: block;
+  padding: 4px;
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 4px 0;
+}
+
+.editHeader {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Название + время + звук в одну строку; при нехватке места — перенос */
+.editRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.editField {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.editTitle {
+  flex: 1 1 200px;
+  min-width: 160px;
+  padding: 3px 4px;
+  font-size: 14px;
+  color: inherit;
+  background-color: #393838;
+  border: 1px solid rgb(255, 180, 0);
+  border-radius: 4px;
+}
+
+.editTime,
+.editSound {
+  padding: 2px 4px;
+  font-size: 14px;
+  color: inherit;
+  background-color: #393838;
+  border: 1px solid rgb(255, 180, 0);
+  border-radius: 4px;
+}
+
+.editDays {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.editDays > label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.editDays > label > input {
+  margin: 0 4px 0 0;
+  height: 14px;
+  width: 14px;
+  cursor: pointer;
+}
+
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.editSave {
+  width: 120px;
+}
+
+.editCancel {
+  width: 100px;
 }
